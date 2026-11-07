@@ -1,0 +1,87 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cabeçalho */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #12355b;
+}
+
+.header__brand {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.header__nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.header__nav a {
+  color: #c9d8e8;
+  text-decoration: none;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.header__nav a:hover {
+  color: #ffffff;
+}
+
+.header__nav a.active {
+  color: #ffffff;
+  border-bottom-color: #f2c14e;
+}
+
+/* Conteúdo */
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Rodapé */
+.footer {
+  padding: 1rem 1.5rem;
+  background: #e4ebe8;
+  color: #52606d;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Espaços de anúncio */
+.ad-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 3rem);
+  max-width: 960px;
+  margin: 1rem auto 0;
+  border: 2px dashed #b8c4c2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #7b8794;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.ad-slot--banner {
+  min-height: 90px;
+}
+
+.ad-slot--card {
+  min-height: 200px;
+  width: 100%;
+}

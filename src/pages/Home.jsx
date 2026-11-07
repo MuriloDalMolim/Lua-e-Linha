@@ -1,3 +1,5 @@
+import AdSlot from "../components/AdSlot.jsx";
+
 function Home() {
   return (
     <section>
@@ -6,6 +8,8 @@ function Home() {
         Descubra se hoje é um bom dia para pescar e o que levar na caixa de
         pesca.
       </p>
+
+      <AdSlot label="Conteúdo patrocinado: pesqueiro parceiro" size="card" />
     </section>
   );
 }
