@@ -85,3 +85,49 @@
   min-height: 200px;
   width: 100%;
 }
+
+/* Previsão */
+.date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 220px;
+  margin: 1rem 0;
+  font-weight: 600;
+}
+
+.date-field input {
+  padding: 0.5rem;
+  border: 1px solid #b8c4c2;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.moon-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: #12355b;
+  color: #ffffff;
+}
+
+.moon-card h2 {
+  margin: 0 0 0.5rem;
+}
+
+.moon-card p {
+  margin: 0.25rem 0;
+}
+
+.moon-card__emoji {
+  font-size: 4rem;
+  line-height: 1;
+}
+
+.moon-card__rating strong {
+  color: #f2c14e;
+}
