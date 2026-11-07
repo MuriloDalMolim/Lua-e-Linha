@@ -108,7 +108,42 @@ A branch `main` é protegida por uma regra (_ruleset_) no GitHub, que:
 
 As mensagens de commit seguem o padrão [Conventional Commits](https://www.conventionalcommits.org), em inglês. O tipo no início da mensagem indica a natureza da mudança.
 
-## 7. Como executar o projeto localmente
+## 7. Pipeline CI/CD
+
+![CI](https://github.com/MuriloDalMolim/lua-e-linha/actions/workflows/ci.yml/badge.svg)
+
+### Ferramenta utilizada
+
+O pipeline utiliza o **GitHub Actions**, com o workflow definido em `.github/workflows/ci.yml`. A execução ocorre em uma máquina virtual Ubuntu criada pelo GitHub a cada execução, sem dependência do ambiente local do desenvolvedor.
+
+### Quando o pipeline é executado
+
+- **Pull Request para a `main`**: valida a mudança antes do merge. O resultado aparece no próprio Pull Request.
+- **Push na `main`**: executado após cada merge, confirmando que a versão principal continua válida.
+
+O merge na `main` só é permitido quando o pipeline é concluído com sucesso.
+
+### Etapas do pipeline
+
+Checkout → Setup Node.js → Install dependencies → Lint → Build
+
+| Etapa                | O que faz                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| Checkout             | Baixa o código do repositório                                                             |
+| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                   |
+| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json` |
+| Lint                 | Analisa o código com o ESLint                                                             |
+| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                   |
+
+As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
+
+### Como verificar uma execução
+
+1. Acesse a aba **Actions** do repositório e selecione uma execução do workflow **CI**.
+2. Abra o job **Lint and build** para ver o resultado e os logs de cada etapa.
+3. Em um Pull Request, o resultado também aparece na seção de verificações, ao final da página.
+
+## 8. Como executar o projeto localmente
 
 Pré-requisitos: [Node.js](https://nodejs.org) 22 ou superior e Git.
 
