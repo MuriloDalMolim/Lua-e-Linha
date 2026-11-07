@@ -4,6 +4,8 @@ const KNOWN_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+const unusedValue = 42;
+
 const PHASES = [
   {
     name: "Lua nova",
