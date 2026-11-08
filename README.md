@@ -155,3 +155,15 @@ npm run dev
 ```
 
 A aplicação ficará disponível no endereço exibido no terminal (por padrão, `http://localhost:5173`).
+
+## 15. Evidências
+
+### Pipeline aprovado em Pull Request
+
+![Pipeline aprovado](docs/evidencias/ci-pr-success.png)
+
+### Pipeline com falha bloqueando o merge
+
+Falha provocada intencionalmente (variável não utilizada, barrada pelo ESLint) para demonstrar que uma alteração inválida não pode ser incorporada à `main`.
+
+![Pipeline com falha](docs/evidencias/ci-pr-blocked.png)
