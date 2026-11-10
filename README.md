@@ -66,6 +66,11 @@ A monetização não está implementada; os espaços são marcados na interface 
 - Git
 - [GitHub](https://github.com) — repositório, branches e Pull Requests
 
+**Testes**
+
+- Vitest
+- @vitest/coverage-v8 — cobertura de testes
+
 ## 5. Arquitetura da aplicação
 
 A aplicação é uma SPA sem backend: todo o código roda no navegador, e os dados são calculados localmente ou obtidos de arquivos e APIs públicas.
@@ -133,6 +138,7 @@ Checkout → Setup Node.js → Install dependencies → Lint → Build
 | Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                   |
 | Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json` |
 | Lint                 | Analisa o código com o ESLint                                                             |
+| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura              |
 | Build                | Gera a versão de produção da aplicação na pasta `dist/`                                   |
 
 As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
@@ -143,18 +149,35 @@ As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes n�
 2. Abra o job **Lint and build** para ver o resultado e os logs de cada etapa.
 3. Em um Pull Request, o resultado também aparece na seção de verificações, ao final da página.
 
-## 8. Como executar o projeto localmente
+## 8. Testes automatizados
 
-Pré-requisitos: [Node.js](https://nodejs.org) 22 ou superior e Git.
+Os testes utilizam o **Vitest** e ficam ao lado do código que testam, com a extensão `.test.js`.
+
+A lógica do serviço fica isolada em funções puras na pasta `src/lib/`, separada dos componentes de interface. Isso permite testar as regras do serviço de forma automatizada, sem depender da tela.
+
+### Cálculo da fase da lua
+
+O arquivo `src/lib/moonPhase.test.js` verifica a função de cálculo com datas reais de fases da lua, obtidas de tabelas astronômicas:
+
+- lua nova, quarto crescente, lua cheia e quarto minguante de janeiro de 2000;
+- uma data anterior à data de referência do cálculo;
+- a volta ao início após um ciclo lunar completo;
+- a idade da lua sempre dentro do intervalo do ciclo, para datas entre 1990 e 2030;
+- o uso da data atual quando nenhuma data é informada.
+
+As datas dos testes são definidas em UTC, para que o resultado seja o mesmo no computador do desenvolvedor e no pipeline.
+
+### Cobertura
+
+A cobertura é medida com o `@vitest/coverage-v8` e considera todos os arquivos de `src/`, inclusive os que não possuem testes. O relatório é exibido no log do pipeline e gerado no formato LCOV (`coverage/lcov.info`), utilizado pela análise de qualidade.
+
+### Executando os testes
 
 ```bash
-git clone https://github.com/MuriloDalMolim/lua-e-linha.git
-cd lua-e-linha
-npm install
-npm run dev
+npm test               # executa os testes uma vez
+npm run test:watch     # executa os testes a cada alteração
+npm run coverage       # executa os testes e gera o relatório de cobertura
 ```
-
-A aplicação ficará disponível no endereço exibido no terminal (por padrão, `http://localhost:5173`).
 
 ## 15. Evidências
 
@@ -167,3 +190,16 @@ A aplicação ficará disponível no endereço exibido no terminal (por padrão,
 Falha provocada intencionalmente (variável não utilizada, barrada pelo ESLint) para demonstrar que uma alteração inválida não pode ser incorporada à `main`.
 
 ![Pipeline com falha](docs/evidencias/ci-pr-blocked.png)
+
+## 16. Como executar o projeto localmente
+
+Pré-requisitos: [Node.js](https://nodejs.org) 22 ou superior e Git.
+
+```bash
+git clone https://github.com/MuriloDalMolim/lua-e-linha.git
+cd lua-e-linha
+npm install
+npm run dev
+```
+
+A aplicação ficará disponível no endereço exibido no terminal (por padrão, `http://localhost:5173`).
