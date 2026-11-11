@@ -72,6 +72,13 @@ A monetização não está implementada; os espaços são marcados na interface 
 - Vitest
 - @vitest/coverage-v8 — cobertura de testes
 
+**Segurança**
+
+- Dependabot — atualização e alertas de dependências
+- npm audit — vulnerabilidades em dependências
+- CodeQL — análise estática de segurança (SAST)
+- Gitleaks e GitHub Secret Protection — detecção de segredos
+
 ## 5. Arquitetura da aplicação
 
 A aplicação é uma SPA sem backend: todo o código roda no navegador, e os dados são calculados localmente ou obtidos de arquivos e APIs públicas.
@@ -106,8 +113,9 @@ main ──●──────────────────●───
 
 A branch `main` é protegida por uma regra (_ruleset_) no GitHub, que:
 
-- exige Pull Request para qualquer alteração;
-- bloqueia _force push_, impedindo a reescrita do histórico;
+- exige Pull Request para qualquer alteração.
+- bloqueia _force push_, impedindo a reescrita do histórico.
+- exige que a análise do CodeQL não aponte alertas de segurança de severidade alta ou crítica.
 - impede a exclusão da branch.
 
 ### Padrão de commits
@@ -131,17 +139,19 @@ O merge na `main` só é permitido quando o pipeline é concluído com sucesso.
 
 ### Etapas do pipeline
 
-Checkout → Setup Node.js → Install dependencies → Lint → Build
+Checkout → Secret scan → Setup Node.js → Install dependencies → Dependency audit → Lint → Tests and coverage → SonarQube Scan → Build
 
-| Etapa                | O que faz                                                                                                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Checkout             | Baixa o código do repositório com o histórico completo, usado pelo SonarQube para identificar o código novo |
-| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                                     |
-| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json`                   |
-| Lint                 | Analisa o código com o ESLint                                                                               |
-| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura                                |
-| SonarQube Scan       | Envia o código e a cobertura ao SonarQube Cloud e aguarda o resultado do Quality Gate                       |
-| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                                     |
+| Etapa                | O que faz                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Checkout             | Baixa o código do repositório com o histórico completo, usado pelo SonarQube para identificar o código novo                  |
+| Secret scan          | Procura segredos (tokens, chaves e senhas) nos commits com o Gitleaks                                                        |
+| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                                                      |
+| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json`                                    |
+| Dependency audit     | Verifica vulnerabilidades conhecidas nas dependências com `npm audit` e falha se houver alguma de severidade alta ou crítica |
+| Lint                 | Analisa o código com o ESLint                                                                                                |
+| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura                                                 |
+| SonarQube Scan       | Envia o código e a cobertura ao SonarQube Cloud e aguarda o resultado do Quality Gate                                        |
+| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                                                      |
 
 As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
 
@@ -150,6 +160,11 @@ As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes n�
 1. Acesse a aba **Actions** do repositório e selecione uma execução do workflow **CI**.
 2. Abra o job **Lint and build** para ver o resultado e os logs de cada etapa.
 3. Em um Pull Request, o resultado também aparece na seção de verificações, ao final da página.
+
+### Outras automações
+
+- **CodeQL** (`.github/workflows/codeql.yml`): análise de segurança do código, executada em Pull Requests, em pushes na `main` e semanalmente.
+- **Dependabot** (`.github/dependabot.yml`): verificação semanal de atualizações das dependências npm e das actions dos workflows.
 
 ## 8. Testes automatizados
 
@@ -231,6 +246,53 @@ Com `sonar.qualitygate.wait=true`, o resultado do Quality Gate passa a ser um cr
 ### Autenticação
 
 O token de acesso ao SonarQube Cloud é armazenado como GitHub Secret (`SONAR_TOKEN`) e lido pelo workflow apenas durante a execução. Nenhuma credencial é versionada no repositório.
+
+## 10. Segurança
+
+A segurança é verificada em diferentes pontos do processo. As ferramentas foram escolhidas por serem gratuitas para repositórios públicos, não exigirem infraestrutura própria e apresentarem os resultados no próprio GitHub, nos Pull Requests e na aba **Security**.
+
+| Requisito                         | Ferramenta                          | Onde atua                                               |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| Análise de dependências           | Dependabot                          | Configuração do repositório e Pull Requests automáticos |
+| Identificação de vulnerabilidades | npm audit                           | Etapa do pipeline de CI                                 |
+| SAST                              | CodeQL                              | Workflow próprio de análise                             |
+| Secret scanning                   | Gitleaks e GitHub Secret Protection | Etapa do pipeline de CI e verificação no push           |
+| Secrets e variáveis               | GitHub Secrets                      | Credenciais usadas pelos workflows                      |
+
+### Análise de dependências
+
+O **Dependabot** está configurado em `.github/dependabot.yml` e verifica semanalmente as dependências npm e as actions utilizadas nos workflows. As atualizações menores são agrupadas em um único Pull Request, com mensagens no padrão Conventional Commits.
+
+Os alertas e as atualizações de segurança do Dependabot também estão habilitados: quando uma vulnerabilidade é publicada para uma dependência do projeto, é aberto um Pull Request com a versão corrigida. Assim como qualquer alteração, esses Pull Requests passam pelo pipeline antes do merge.
+
+### Identificação de vulnerabilidades
+
+A etapa **Dependency audit** executa `npm audit --audit-level=high`, que consulta o banco de vulnerabilidades do registro npm. Todas as vulnerabilidades encontradas são exibidas no log, e o pipeline falha quando há alguma de severidade alta ou crítica. As de severidade baixa ou moderada não interrompem o pipeline e são tratadas pelas atualizações do Dependabot.
+
+### Análise estática de segurança (SAST)
+
+O **CodeQL** analisa o código em busca de falhas de segurança, como injeção de código e uso inseguro de dados fornecidos pelo usuário. Ele é executado em um workflow próprio, em paralelo ao pipeline de CI, em Pull Requests, em pushes na `main` e semanalmente. A execução semanal permite identificar vulnerabilidades detectadas por novas regras mesmo sem alteração no código.
+
+Os resultados ficam em **Security → Code scanning**, e a regra de proteção da `main` impede o merge de Pull Requests com alertas de severidade alta ou crítica.
+
+### Secret scanning
+
+A detecção de segredos ocorre em duas camadas:
+
+- **Gitleaks**, na etapa **Secret scan** do pipeline, analisa os commits em busca de tokens, chaves e senhas. É a primeira validação após o checkout, e uma detecção interrompe o pipeline.
+- **GitHub Secret Protection**, com _push protection_, verifica o repositório e bloqueia o push quando reconhece um segredo de um provedor conhecido, antes que ele chegue ao repositório remoto.
+
+### Uso de secrets e permissões
+
+- O token do SonarQube Cloud é armazenado como GitHub Secret (`SONAR_TOKEN`). Nenhuma credencial é versionada no repositório.
+- O `GITHUB_TOKEN` usado pelos workflows é gerado pelo GitHub a cada execução e expira ao final do job.
+- Os workflows declaram permissões mínimas (`permissions`). O pipeline de CI tem apenas permissão de leitura, e o CodeQL pode apenas publicar os resultados da análise de segurança. Isso limita o impacto caso uma action ou dependência seja comprometida.
+
+### Cadeia de suprimentos
+
+- As dependências são instaladas com `npm ci`, que usa exatamente as versões registradas no `package-lock.json`.
+- As actions utilizadas nos workflows também são monitoradas pelo Dependabot.
+- O pipeline verifica dependências e segredos antes de qualquer etapa de build.
 
 ## 15. Evidências
 
