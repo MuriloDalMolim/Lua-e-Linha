@@ -41,13 +41,13 @@ A monetização não está implementada; os espaços são marcados na interface 
 ### Disponíveis
 
 - **Previsão pela fase da lua**: o usuário escolhe uma data e a aplicação mostra a fase da lua, o percentual de iluminação, uma avaliação para a pesca (boa, regular ou fraca) e uma dica.
+- **Guia de equipamentos**: o usuário escolhe o ambiente (rio, represa ou mar) e a espécie, e a aplicação recomenda vara, linha, anzol, iscas e técnica, com uma dica para aquele ambiente.
 - **Espaços de anúncio e conteúdo patrocinado** em todas as páginas.
 - **Página de erro** para endereços inexistentes.
 
 ### Planejadas
 
 - **Índice de pesca do dia**: nota de 0 a 10 combinando a fase da lua com dados de clima (pressão atmosférica, vento e temperatura) obtidos da API pública [Open-Meteo](https://open-meteo.com).
-- **Guia de equipamentos**: o usuário escolhe a espécie e o ambiente (rio, represa ou mar) e recebe a recomendação de isca, linha, anzol e técnica.
 
 ## 4. Tecnologias utilizadas
 
@@ -169,9 +169,20 @@ O arquivo `src/lib/moonPhase.test.js` verifica a função de cálculo com datas 
 
 As datas dos testes são definidas em UTC, para que o resultado seja o mesmo no computador do desenvolvedor e no pipeline.
 
+### Recomendação de equipamentos
+
+O arquivo `src/lib/recommendation.test.js` verifica:
+
+- a lista de espécies de cada ambiente, que deve conter apenas espécies que vivem nele;
+- a recomendação completa para uma espécie em um ambiente;
+- o retorno vazio quando a espécie não vive no ambiente, quando a espécie ou o ambiente não existem e quando nada foi selecionado.
+
+Também há testes de integridade dos dados do `guide.json`: cada espécie deve ter todas as informações de equipamento, usar apenas ambientes cadastrados e ter uma dica para cada ambiente. Assim, um erro ao editar o arquivo de dados é detectado pelo pipeline antes de chegar à aplicação.
+
 ### Cobertura
 
 A cobertura é medida com o `@vitest/coverage-v8` e considera todos os arquivos de `src/`, inclusive os que não possuem testes. O relatório é exibido no log do pipeline e gerado no formato LCOV (`coverage/lcov.info`), utilizado pela análise de qualidade.
+Os testes automatizados se concentram nas regras do serviço, em `src/lib/`. Os componentes de interface não possuem testes automatizados nesta versão e, por isso, são desconsiderados no cálculo de cobertura do SonarQube (ver [Qualidade de código](#9-qualidade-de-código)).
 
 ### Executando os testes
 
@@ -193,12 +204,13 @@ O **ESLint** verifica erros comuns e padrões de código, com as regras definida
 
 O **SonarQube Cloud** analisa o código em busca de bugs, vulnerabilidades, _code smells_ e duplicações, e utiliza o relatório de cobertura gerado pelo Vitest. A configuração fica no arquivo `sonar-project.properties`:
 
-| Propriedade                               | Função                                                          |
-| ----------------------------------------- | --------------------------------------------------------------- |
-| `sonar.organization` e `sonar.projectKey` | Identificam o projeto no SonarQube Cloud                        |
-| `sonar.sources` e `sonar.tests`           | Separam o código da aplicação dos arquivos de teste             |
-| `sonar.javascript.lcov.reportPaths`       | Indica o relatório de cobertura (`coverage/lcov.info`)          |
-| `sonar.qualitygate.wait`                  | Faz o pipeline aguardar e respeitar o resultado do Quality Gate |
+| Propriedade                               | Função                                                           |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `sonar.organization` e `sonar.projectKey` | Identificam o projeto no SonarQube Cloud                         |
+| `sonar.sources` e `sonar.tests`           | Separam o código da aplicação dos arquivos de teste              |
+| `sonar.javascript.lcov.reportPaths`       | Indica o relatório de cobertura (`coverage/lcov.info`)           |
+| `sonar.coverage.exclusions`               | Desconsidera os componentes de interface no cálculo de cobertura |
+| `sonar.qualitygate.wait`                  | Faz o pipeline aguardar e respeitar o resultado do Quality Gate  |
 
 A análise automática do SonarQube Cloud está desativada. A análise é executada exclusivamente pelo pipeline, após os testes, para que o relatório de cobertura esteja disponível.
 
@@ -207,6 +219,12 @@ Em Pull Requests, o SonarQube analisa apenas o código alterado em relação à 
 ### Quality Gate
 
 O projeto utiliza o Quality Gate padrão **Sonar way**, que avalia o código novo quanto a cobertura, duplicações, confiabilidade, segurança e manutenibilidade.
+
+### Cobertura considerada pelo Quality Gate
+
+O Sonar way exige pelo menos 80% de cobertura no código novo. Como os testes se concentram nas regras do serviço, as páginas, os componentes e os arquivos de inicialização (`src/pages/`, `src/components/`, `App.jsx` e `main.jsx`) são desconsiderados no cálculo de cobertura. Dessa forma, a exigência de cobertura recai sobre a pasta `src/lib/`, onde estão as regras do serviço.
+
+Esses arquivos continuam sendo analisados pelo SonarQube quanto a bugs, vulnerabilidades, _code smells_ e duplicações. A exclusão vale apenas para a métrica de cobertura.
 
 Com `sonar.qualitygate.wait=true`, o resultado do Quality Gate passa a ser um critério do pipeline: se ele falhar, a etapa do SonarQube falha, o build não é executado e o merge do Pull Request é bloqueado.
 

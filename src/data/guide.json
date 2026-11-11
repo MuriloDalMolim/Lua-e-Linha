@@ -1,0 +1,91 @@
+{
+  "environments": [
+    { "id": "rio", "name": "Rio" },
+    { "id": "represa", "name": "Represa" },
+    { "id": "mar", "name": "Mar" }
+  ],
+  "species": [
+    {
+      "id": "tilapia",
+      "name": "Tilápia",
+      "environments": ["rio", "represa"],
+      "rod": "Vara de 1,80 a 3 m, ação leve",
+      "line": "Monofilamento de 0,25 a 0,30 mm",
+      "hook": "Anzol pequeno, nº 10 a 14",
+      "baits": ["Massa", "Minhoca", "Ração"],
+      "technique": "Pesca de fundo ou com boia, perto da vegetação",
+      "tips": {
+        "rio": "Procure remansos e margens com plantas aquáticas, onde a correnteza é mais fraca.",
+        "represa": "Fique atento a cardumes perto de estruturas submersas e da vegetação da margem."
+      }
+    },
+    {
+      "id": "tucunare",
+      "name": "Tucunaré",
+      "environments": ["rio", "represa"],
+      "rod": "Vara de 1,60 a 1,80 m, ação média-rápida, com carretilha",
+      "line": "Multifilamento de 20 a 30 lb",
+      "hook": "Garateias das próprias iscas artificiais",
+      "baits": ["Isca de superfície", "Meia-água", "Jig"],
+      "technique": "Arremesso com iscas artificiais perto de galhadas e pedras",
+      "tips": {
+        "rio": "Arremesse perto de galhadas e pontas de pedra, onde ele fica de tocaia.",
+        "represa": "Explore pontas de ilhas e galhadas submersas nas primeiras horas do dia."
+      }
+    },
+    {
+      "id": "traira",
+      "name": "Traíra",
+      "environments": ["rio", "represa"],
+      "rod": "Vara de 1,60 a 1,80 m, ação média",
+      "line": "Multifilamento de 30 a 50 lb, com empate de aço",
+      "hook": "Anzol 2/0 a 4/0",
+      "baits": ["Isca de superfície tipo rã", "Lambari"],
+      "technique": "Iscas de superfície em águas paradas e rasas",
+      "tips": {
+        "rio": "Procure trechos de água parada e rasa, com vegetação, nas margens.",
+        "represa": "Explore os braços rasos e com plantas aquáticas, principalmente no fim da tarde."
+      }
+    },
+    {
+      "id": "pacu",
+      "name": "Pacu",
+      "environments": ["rio", "represa"],
+      "rod": "Vara de 2,10 a 2,70 m, ação média-pesada",
+      "line": "Monofilamento de 0,35 a 0,40 mm",
+      "hook": "Anzol reforçado, 1/0 a 3/0",
+      "baits": ["Massa", "Ração", "Frutas"],
+      "technique": "Pesca de fundo ou de meia-água, com a isca perto das árvores frutíferas",
+      "tips": {
+        "rio": "Procure margens com árvores frutíferas, onde ele se alimenta das frutas que caem na água.",
+        "represa": "Faça a ceva com ração e pesque com a isca na meia-água."
+      }
+    },
+    {
+      "id": "dourado",
+      "name": "Dourado",
+      "environments": ["rio"],
+      "rod": "Vara de 1,80 a 2,10 m, ação média-pesada, com carretilha",
+      "line": "Multifilamento de 30 a 50 lb, com empate de aço",
+      "hook": "Anzol 4/0 a 6/0 ou garateias das iscas artificiais",
+      "baits": ["Tuvira", "Lambari", "Isca de meia-água"],
+      "technique": "Arremesso em corredeiras e saídas de canais",
+      "tips": {
+        "rio": "Procure corredeiras e encontros de águas. Em vários estados, a pesca do dourado só é permitida no pesque e solte: consulte as regras locais."
+      }
+    },
+    {
+      "id": "robalo",
+      "name": "Robalo",
+      "environments": ["mar"],
+      "rod": "Vara de 1,80 a 2,10 m, ação média, com molinete ou carretilha",
+      "line": "Multifilamento de 20 a 30 lb, com líder de fluorocarbono",
+      "hook": "Anzol 1/0 a 3/0",
+      "baits": ["Camarão vivo", "Isca de meia-água", "Shad"],
+      "technique": "Pesca perto de pedras, mangues e desembocaduras de rios",
+      "tips": {
+        "mar": "Os melhores horários são as trocas de maré, perto de costões, pilares e desembocaduras."
+      }
+    }
+  ]
+}
