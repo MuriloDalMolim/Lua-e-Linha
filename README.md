@@ -60,6 +60,7 @@ A monetização não está implementada; os espaços são marcados na interface 
 **Qualidade**
 
 - ESLint
+- [SonarQube Cloud](https://sonarcloud.io) — análise estática e Quality Gate
 
 **Versionamento**
 
@@ -132,14 +133,15 @@ O merge na `main` só é permitido quando o pipeline é concluído com sucesso.
 
 Checkout → Setup Node.js → Install dependencies → Lint → Build
 
-| Etapa                | O que faz                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| Checkout             | Baixa o código do repositório                                                             |
-| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                   |
-| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json` |
-| Lint                 | Analisa o código com o ESLint                                                             |
-| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura              |
-| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                   |
+| Etapa                | O que faz                                                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Checkout             | Baixa o código do repositório com o histórico completo, usado pelo SonarQube para identificar o código novo |
+| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                                     |
+| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json`                   |
+| Lint                 | Analisa o código com o ESLint                                                                               |
+| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura                                |
+| SonarQube Scan       | Envia o código e a cobertura ao SonarQube Cloud e aguarda o resultado do Quality Gate                       |
+| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                                     |
 
 As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
 
@@ -178,6 +180,39 @@ npm test               # executa os testes uma vez
 npm run test:watch     # executa os testes a cada alteração
 npm run coverage       # executa os testes e gera o relatório de cobertura
 ```
+
+## 9. Qualidade de código
+
+A qualidade do código é verificada em duas etapas do pipeline: lint e análise estática.
+
+### Lint
+
+O **ESLint** verifica erros comuns e padrões de código, com as regras definidas em `eslint.config.js`. Entre elas, variáveis declaradas e não utilizadas são tratadas como erro. Uma falha no lint interrompe o pipeline antes dos testes e do build.
+
+### Análise estática
+
+O **SonarQube Cloud** analisa o código em busca de bugs, vulnerabilidades, _code smells_ e duplicações, e utiliza o relatório de cobertura gerado pelo Vitest. A configuração fica no arquivo `sonar-project.properties`:
+
+| Propriedade                               | Função                                                          |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `sonar.organization` e `sonar.projectKey` | Identificam o projeto no SonarQube Cloud                        |
+| `sonar.sources` e `sonar.tests`           | Separam o código da aplicação dos arquivos de teste             |
+| `sonar.javascript.lcov.reportPaths`       | Indica o relatório de cobertura (`coverage/lcov.info`)          |
+| `sonar.qualitygate.wait`                  | Faz o pipeline aguardar e respeitar o resultado do Quality Gate |
+
+A análise automática do SonarQube Cloud está desativada. A análise é executada exclusivamente pelo pipeline, após os testes, para que o relatório de cobertura esteja disponível.
+
+Em Pull Requests, o SonarQube analisa apenas o código alterado em relação à `main` e publica o resultado no próprio Pull Request.
+
+### Quality Gate
+
+O projeto utiliza o Quality Gate padrão **Sonar way**, que avalia o código novo quanto a cobertura, duplicações, confiabilidade, segurança e manutenibilidade.
+
+Com `sonar.qualitygate.wait=true`, o resultado do Quality Gate passa a ser um critério do pipeline: se ele falhar, a etapa do SonarQube falha, o build não é executado e o merge do Pull Request é bloqueado.
+
+### Autenticação
+
+O token de acesso ao SonarQube Cloud é armazenado como GitHub Secret (`SONAR_TOKEN`) e lido pelo workflow apenas durante a execução. Nenhuma credencial é versionada no repositório.
 
 ## 15. Evidências
 
