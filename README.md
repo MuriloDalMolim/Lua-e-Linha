@@ -8,6 +8,8 @@ Projeto acadêmico desenvolvido para a disciplina de **Integração Contínua** 
 
 O **Lua & Linha** é uma Single Page Application (SPA) de apoio à pesca amadora. A aplicação reúne, em um só lugar, informações que o pescador costuma buscar antes de sair: as condições do dia e o equipamento adequado para o peixe que pretende pescar.
 
+**Aplicação publicada:** https://murilodalmolim.github.io/Lua-e-Linha/
+
 ## 2. Serviço proposto
 
 ### Problema que o serviço pretende resolver
@@ -133,25 +135,27 @@ O pipeline utiliza o **GitHub Actions**, com o workflow definido em `.github/wor
 ### Quando o pipeline é executado
 
 - **Pull Request para a `main`**: valida a mudança antes do merge. O resultado aparece no próprio Pull Request.
-- **Push na `main`**: executado após cada merge, confirmando que a versão principal continua válida.
+- **Push na `main`**: executado após cada merge. Além das validações, gera o artefato e publica a aplicação no GitHub Pages.
 
 O merge na `main` só é permitido quando o pipeline é concluído com sucesso.
 
 ### Etapas do pipeline
 
-Checkout → Secret scan → Setup Node.js → Install dependencies → Dependency audit → Lint → Tests and coverage → SonarQube Scan → Build
+Checkout → Secret scan → Setup Node.js → Install dependencies → Dependency audit → Lint → Tests and coverage → SonarQube Scan → Build → Upload Pages artifact → Deploy
 
-| Etapa                | O que faz                                                                                                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Checkout             | Baixa o código do repositório com o histórico completo, usado pelo SonarQube para identificar o código novo                  |
-| Secret scan          | Procura segredos (tokens, chaves e senhas) nos commits com o Gitleaks                                                        |
-| Setup Node.js        | Instala o Node.js 22 e restaura o cache de dependências                                                                      |
-| Install dependencies | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json`                                    |
-| Dependency audit     | Verifica vulnerabilidades conhecidas nas dependências com `npm audit` e falha se houver alguma de severidade alta ou crítica |
-| Lint                 | Analisa o código com o ESLint                                                                                                |
-| Tests and coverage   | Executa os testes automatizados com o Vitest e gera o relatório de cobertura                                                 |
-| SonarQube Scan       | Envia o código e a cobertura ao SonarQube Cloud e aguarda o resultado do Quality Gate                                        |
-| Build                | Gera a versão de produção da aplicação na pasta `dist/`                                                                      |
+| Etapa                 | O que faz                                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Checkout              | Baixa o código do repositório com o histórico completo, usado pelo SonarQube para identificar o código novo                  |
+| Secret scan           | Procura segredos (tokens, chaves e senhas) nos commits com o Gitleaks                                                        |
+| Setup Node.js         | Instala o Node.js 22 e restaura o cache de dependências                                                                      |
+| Install dependencies  | Instala as dependências com `npm ci`, usando exatamente as versões do `package-lock.json`                                    |
+| Dependency audit      | Verifica vulnerabilidades conhecidas nas dependências com `npm audit` e falha se houver alguma de severidade alta ou crítica |
+| Lint                  | Analisa o código com o ESLint                                                                                                |
+| Tests and coverage    | Executa os testes automatizados com o Vitest e gera o relatório de cobertura                                                 |
+| SonarQube Scan        | Envia o código e a cobertura ao SonarQube Cloud e aguarda o resultado do Quality Gate                                        |
+| Build                 | Gera a versão de produção da aplicação na pasta `dist/`                                                                      |
+| Upload Pages artifact | Empacota a pasta `dist/` como artefato da execução (somente em push na `main`)                                               |
+| Deploy                | Job separado que publica o artefato no GitHub Pages (somente em push na `main` e após o sucesso do build)                    |
 
 As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
 
@@ -293,6 +297,60 @@ A detecção de segredos ocorre em duas camadas:
 - As dependências são instaladas com `npm ci`, que usa exatamente as versões registradas no `package-lock.json`.
 - As actions utilizadas nos workflows também são monitoradas pelo Dependabot.
 - O pipeline verifica dependências e segredos antes de qualquer etapa de build.
+
+## 11. Build e artefatos
+
+### Como o build é realizado
+
+O build é feito pelo **Vite**, com o comando `npm run build`. Ele reúne o código da aplicação e das bibliotecas, remove o que não é utilizado, minifica os arquivos e gera a versão de produção na pasta `dist/`.
+
+### Arquivos que constituem o artefato
+
+| Arquivo                   | Conteúdo                                              |
+| ------------------------- | ----------------------------------------------------- |
+| `index.html`              | Página única da SPA                                   |
+| `assets/index-[hash].js`  | Código da aplicação e das bibliotecas, minificado     |
+| `assets/index-[hash].css` | Estilos da aplicação                                  |
+| `vite.svg`                | Ícone da aba do navegador, copiado da pasta `public/` |
+
+O `[hash]` no nome dos arquivos muda sempre que o conteúdo muda. Isso permite que o navegador mantenha os arquivos em cache e baixe uma nova versão apenas quando houver alteração.
+
+A configuração `base: './'` no `vite.config.js` faz os caminhos dos arquivos serem relativos, permitindo que a aplicação funcione na subpasta do GitHub Pages.
+
+### Em qual etapa o artefato é produzido
+
+O build é executado em toda execução do pipeline, inclusive em Pull Requests, para garantir que a aplicação continua compilando. Em pushes na `main`, a etapa **Upload Pages artifact** empacota a pasta `dist/` e a armazena como artefato da execução, com o nome `github-pages`.
+
+### Como o artefato é utilizado na publicação
+
+O job de deploy não executa um novo build: ele publica exatamente o artefato gerado e validado pelo job de build. Dessa forma, a versão publicada é a mesma que passou por todas as verificações de qualidade e segurança.
+
+## 12. Deploy
+
+A aplicação é publicada no **GitHub Pages**, escolhido por ser gratuito, integrado ao GitHub Actions e adequado a uma SPA sem backend, que consiste apenas em arquivos estáticos.
+
+**Endereço:** https://murilodalmolim.github.io/Lua-e-Linha/
+
+### Fluxo
+
+O deploy é um job separado do workflow de CI e é executado automaticamente após cada merge na `main`:
+
+1. O job **Lint, test and build** executa todas as validações e gera o artefato.
+2. O job **Deploy to GitHub Pages** só é iniciado se o build for concluído com sucesso (`needs: build`).
+3. O artefato é publicado, e o endereço da aplicação é registrado no ambiente `github-pages`.
+
+Em Pull Requests, o job de deploy não é executado. Assim, apenas alterações revisadas e incorporadas à `main` chegam à aplicação publicada.
+
+### Segurança do deploy
+
+- Apenas o job de deploy possui permissão para publicar no GitHub Pages. O job de build tem somente permissão de leitura.
+- A autenticação no GitHub Pages usa um token temporário (OIDC), gerado durante a execução. Não há credenciais armazenadas para o deploy.
+- O ambiente `github-pages` aceita deploys apenas a partir da branch `main`.
+- Deploys simultâneos são evitados (`concurrency`), garantindo que uma publicação termine antes da seguinte.
+
+### Roteamento no GitHub Pages
+
+O GitHub Pages serve apenas arquivos estáticos e não permite configurar o servidor para redirecionar todos os endereços ao `index.html`. Por isso, a aplicação utiliza o `HashRouter` (ver [Arquitetura da aplicação](#5-arquitetura-da-aplicação)): a rota fica após o `#` e não é enviada ao servidor, que sempre entrega o `index.html`.
 
 ## 15. Evidências
 
