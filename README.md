@@ -129,6 +129,20 @@ A branch `main` é protegida por uma regra (_ruleset_) no GitHub, que:
 
 As mensagens de commit seguem o padrão [Conventional Commits](https://www.conventionalcommits.org), em inglês. O tipo no início da mensagem indica a natureza da mudança.
 
+### Versionamento
+
+O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (SemVer), no formato `MAJOR.MINOR.PATCH`:
+
+| Parte | Quando muda                                        |
+| ----- | -------------------------------------------------- |
+| MAJOR | Mudanças incompatíveis com a versão anterior       |
+| MINOR | Novas funcionalidades compatíveis (commits `feat`) |
+| PATCH | Correções compatíveis (commits `fix`)              |
+
+A versão fica registrada no `package.json`. Cada versão entregue é preparada em uma branch `release/X.Y.Z`, incorporada à `main` por Pull Request, marcada com uma tag `vX.Y.Z` e publicada como _Release_ no GitHub, com as notas geradas a partir dos Pull Requests incluídos.
+
+**Versão atual: 1.0.0**, a primeira versão completa, com a previsão pela fase da lua, o guia de equipamentos e o processo de CI/CD com testes, qualidade, segurança, deploy e monitoramento.
+
 ## 7. Pipeline CI/CD
 
 ![CI](https://github.com/MuriloDalMolim/lua-e-linha/actions/workflows/ci.yml/badge.svg)
@@ -403,6 +417,10 @@ Antes de considerar uma falha, cada requisição é repetida até 3 vezes, com i
 2. Informe uma URL inexistente, como `https://murilodalmolim.github.io/Lua-e-Linha/nao-existe/`.
 3. A verificação falha e a issue é aberta.
 4. Execute novamente sem informar URL. A verificação passa e a issue é fechada automaticamente.
+
+## 14. Docker (opcional)
+
+Não implementado nesta versão. A aplicação é composta apenas por arquivos estáticos, publicados diretamente no GitHub Pages a partir do artefato gerado pelo pipeline, sem necessidade de um servidor ou ambiente de execução próprio.
 
 ## 15. Evidências
 
