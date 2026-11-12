@@ -86,6 +86,11 @@ A monetização não está implementada; os espaços são marcados na interface 
 - CodeQL — análise estática de segurança (SAST)
 - Gitleaks e GitHub Secret Protection — detecção de segredos
 
+**CI/CD e hospedagem**
+
+- [GitHub Actions](https://github.com/features/actions) — pipeline de CI/CD e monitoramento
+- [GitHub Pages](https://pages.github.com) — hospedagem da aplicação
+
 ## 5. Arquitetura da aplicação
 
 A aplicação é uma SPA sem backend: todo o código roda no navegador, e os dados são calculados localmente ou obtidos de arquivos e APIs públicas.
@@ -120,9 +125,10 @@ main ──●──────────────────●───
 
 A branch `main` é protegida por uma regra (_ruleset_) no GitHub, que:
 
-- exige Pull Request para qualquer alteração.
-- bloqueia _force push_, impedindo a reescrita do histórico.
-- exige que a análise do CodeQL não aponte alertas de segurança de severidade alta ou crítica.
+- exige Pull Request para qualquer alteração;
+- exige que o pipeline (`Lint, test and build`) seja concluído com sucesso antes do merge;
+- exige que a análise do CodeQL não aponte alertas de segurança de severidade alta ou crítica;
+- bloqueia _force push_, impedindo a reescrita do histórico;
 - impede a exclusão da branch.
 
 ### Padrão de commits
@@ -144,8 +150,6 @@ A versão fica registrada no `package.json`. Cada versão entregue é preparada 
 **Versão atual: 1.0.0**, a primeira versão completa, com a previsão pela fase da lua, o guia de equipamentos e o processo de CI/CD com testes, qualidade, segurança, deploy e monitoramento.
 
 ## 7. Pipeline CI/CD
-
-![CI](https://github.com/MuriloDalMolim/lua-e-linha/actions/workflows/ci.yml/badge.svg)
 
 ### Ferramenta utilizada
 
@@ -182,7 +186,7 @@ As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes n�
 ### Como verificar uma execução
 
 1. Acesse a aba **Actions** do repositório e selecione uma execução do workflow **CI**.
-2. Abra o job **Lint and build** para ver o resultado e os logs de cada etapa.
+2. Abra o job **Lint, test and build** para ver o resultado e os logs de cada etapa.
 3. Em um Pull Request, o resultado também aparece na seção de verificações, ao final da página.
 
 ### Outras automações
@@ -312,12 +316,19 @@ A detecção de segredos ocorre em duas camadas:
 - O token do SonarQube Cloud é armazenado como GitHub Secret (`SONAR_TOKEN`). Nenhuma credencial é versionada no repositório.
 - O `GITHUB_TOKEN` usado pelos workflows é gerado pelo GitHub a cada execução e expira ao final do job.
 - Os workflows declaram permissões mínimas (`permissions`). O pipeline de CI tem apenas permissão de leitura, e o CodeQL pode apenas publicar os resultados da análise de segurança. Isso limita o impacto caso uma action ou dependência seja comprometida.
+- Os workflows disparados pelo Dependabot não têm acesso aos secrets do repositório, como proteção contra dependências maliciosas. Por isso, o `SONAR_TOKEN` também é cadastrado nos _Dependabot secrets_, permitindo que as atualizações automáticas passem pelo mesmo pipeline.
 
 ### Cadeia de suprimentos
 
 - As dependências são instaladas com `npm ci`, que usa exatamente as versões registradas no `package-lock.json`.
 - As actions utilizadas nos workflows também são monitoradas pelo Dependabot.
 - O pipeline verifica dependências e segredos antes de qualquer etapa de build.
+
+#### Riscos aceitos
+
+| Pacote                                         | Severidade | Decisão                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `minimatch` (dependência transitiva do ESLint) | Moderada   | Risco aceito. O pacote é usado apenas pelas ferramentas de desenvolvimento e não faz parte do build publicado. A única correção disponível exigiria retornar ao ESLint 9, uma versão major anterior. O alerta foi dispensado com justificativa no GitHub e será resolvido pela próxima atualização do ESLint, que o Dependabot proporá automaticamente. |
 
 ## 11. Build e artefatos
 
@@ -424,15 +435,67 @@ Não implementado nesta versão. A aplicação é composta apenas por arquivos e
 
 ## 15. Evidências
 
-### Pipeline aprovado em Pull Request
+As imagens abaixo foram capturadas das execuções reais do pipeline, do monitoramento e dos Pull Requests do repositório. O histórico completo pode ser consultado nas abas **Actions**, **Pull requests** e **Issues**.
+
+### Pipeline e proteção da branch principal
+
+Primeira versão do pipeline (lint e build), aprovada em um Pull Request:
 
 ![Pipeline aprovado](docs/evidencias/ci-pr-success.png)
 
-### Pipeline com falha bloqueando o merge
+Falha provocada intencionalmente (variável não utilizada, barrada pelo ESLint). O pipeline é obrigatório, e o merge fica bloqueado:
 
-Falha provocada intencionalmente (variável não utilizada, barrada pelo ESLint) para demonstrar que uma alteração inválida não pode ser incorporada à `main`.
+![Merge bloqueado pelo pipeline](docs/evidencias/ci-pr-blocked.png)
 
-![Pipeline com falha](docs/evidencias/ci-pr-blocked.png)
+### Testes automatizados e cobertura
+
+Execução dos testes no pipeline, com o relatório de cobertura. As regras do serviço (`src/lib`) estão 100% cobertas:
+
+![Testes e cobertura](docs/evidencias/tests-coverage.png)
+
+### Qualidade de código
+
+Dashboard do projeto no SonarQube Cloud: Quality Gate aprovado, sem issues e com 100% de cobertura nas regras do serviço:
+
+![SonarQube](docs/evidencias/sonarqube.png)
+
+### Segurança
+
+Etapas do pipeline na ordem de execução. A detecção de segredos (Secret scan) e a auditoria de dependências (Dependency audit) acontecem antes do lint, dos testes e do build:
+
+![Etapas do pipeline](docs/evidencias/security-pipeline.png)
+
+Análise de segurança do código com o CodeQL, sem alertas abertos na `main`:
+
+![CodeQL](docs/evidencias/codeql.png)
+
+### Deploy
+
+Pull Request com todas as verificações aprovadas. O deploy não é executado em Pull Requests:
+
+![Deploy não executado no Pull Request](docs/evidencias/deploy-skipped-pr.png)
+
+Após o merge na `main`: build, deploy e verificação da aplicação publicada, em sequência:
+
+![Deploy e verificação](docs/evidencias/deploy-verified.png)
+
+### Monitoramento
+
+Verificação da aplicação publicada:
+
+![Monitoramento com sucesso](docs/evidencias/monitor-success.png)
+
+Falha simulada, com uma URL inexistente:
+
+![Monitoramento com falha](docs/evidencias/monitor-failure.png)
+
+Issue aberta automaticamente pela falha:
+
+![Issue aberta](docs/evidencias/monitor-issue.png)
+
+Issue fechada automaticamente quando a aplicação voltou a responder:
+
+![Issue fechada](docs/evidencias/monitor-recovery.png)
 
 ## 16. Como executar o projeto localmente
 
@@ -443,6 +506,16 @@ git clone https://github.com/MuriloDalMolim/lua-e-linha.git
 cd lua-e-linha
 npm install
 npm run dev
+```
+
+Para reproduzir localmente as principais etapas do pipeline:
+
+```bash
+npm run lint         # análise de código com o ESLint
+npm run coverage     # testes automatizados com cobertura
+npm audit            # verificação de vulnerabilidades nas dependências
+npm run build        # gera a versão de produção na pasta dist/
+npm run preview      # serve localmente a versão gerada pelo build
 ```
 
 A aplicação ficará disponível no endereço exibido no terminal (por padrão, `http://localhost:5173`).
