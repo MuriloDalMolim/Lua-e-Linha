@@ -8,6 +8,12 @@ on:
       url:
         description: URL a verificar (deixe vazio para usar a URL da aplicação)
         required: false
+  workflow_call:
+    inputs:
+      url:
+        description: URL a verificar (vazio usa a URL da aplicação)
+        type: string
+        required: false
 
 permissions:
   contents: read
