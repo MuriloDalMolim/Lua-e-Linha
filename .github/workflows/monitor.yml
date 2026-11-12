@@ -1,0 +1,129 @@
+name: Monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL a verificar (deixe vazio para usar a URL da aplicação)
+        required: false
+  workflow_call:
+    inputs:
+      url:
+        description: URL a verificar (vazio usa a URL da aplicação)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  APP_URL: ${{ inputs.url || 'https://murilodalmolim.github.io/Lua-e-Linha/' }}
+  EXPECTED_TEXT: Lua & Linha
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  health-check:
+    name: Health check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check application availability
+        run: |
+          set -euo pipefail
+          echo "Verificando $APP_URL"
+
+          # Página principal: status HTTP e tempo de resposta, com até 3 novas tentativas
+          result=$(curl --silent --show-error --location \
+            --retry 3 --retry-delay 10 --retry-all-errors --max-time 20 \
+            --output page.html --write-out '%{http_code} %{time_total}' \
+            "$APP_URL") || true
+          status=${result%% *}
+          time=${result##* }
+          echo "Status HTTP: $status (${time}s)"
+
+          {
+            echo "## Health check"
+            echo ""
+            echo "| Verificação | Resultado |"
+            echo "|---|---|"
+            echo "| URL | $APP_URL |"
+            echo "| Status HTTP | $status |"
+            echo "| Tempo de resposta | ${time}s |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$status" = "000" ]; then
+            echo "::error::A aplicação não respondeu (falha de conexão ou tempo esgotado)"
+            exit 1
+          fi
+
+          if [ "$status" != "200" ]; then
+            echo "::error::A aplicação respondeu com status $status"
+            exit 1
+          fi
+
+          # Conteúdo esperado na página
+          if ! grep -qF "$EXPECTED_TEXT" page.html; then
+            echo "::error::A página não contém o texto esperado: $EXPECTED_TEXT"
+            exit 1
+          fi
+          echo "| Conteúdo esperado | encontrado |" >> "$GITHUB_STEP_SUMMARY"
+
+          # Script principal da aplicação (sem ele, a página fica em branco)
+          script=$(grep -oE 'assets/index-[^"]+\.js' page.html | head -n 1 || true)
+          if [ -z "$script" ]; then
+            echo "::error::O script da aplicação não foi encontrado na página"
+            exit 1
+          fi
+
+          script_status=$(curl --silent --location \
+            --retry 3 --retry-delay 10 --retry-all-errors --max-time 20 \
+            --output /dev/null --write-out '%{http_code}' \
+            "${APP_URL%/}/$script") || true
+          echo "Script $script: $script_status"
+          echo "| Script da aplicação | $script_status |" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$script_status" != "200" ]; then
+            echo "::error::O script da aplicação respondeu com status $script_status"
+            exit 1
+          fi
+
+          echo "Aplicação disponível"
+          echo "| Resultado | ✅ disponível |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "| Resultado | ❌ indisponível |" >> "$GITHUB_STEP_SUMMARY"
+          gh label create monitoring --color D93F0B \
+            --description "Falhas detectadas pelo monitoramento" \
+            --force --repo "$GITHUB_REPOSITORY"
+
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --label monitoring \
+            --state open --json number --jq '.[].number' | head -n 1)
+
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" \
+              --body "A aplicação continua indisponível. Execução: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --label monitoring \
+              --title "Aplicação indisponível" \
+              --body "O monitoramento detectou que $APP_URL não está respondendo corretamente. Execução: $RUN_URL"
+          fi
+
+      - name: Close issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --label monitoring \
+            --state open --json number --jq '.[].number' | head -n 1)
+
+          if [ -n "$issue" ]; then
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" \
+              --comment "A aplicação voltou a responder normalmente. Execução: $RUN_URL"
+          fi

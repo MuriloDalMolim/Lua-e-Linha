@@ -79,3 +79,12 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v5
+
+  post-deploy-check:
+    name: Post-deploy check
+    needs: deploy
+    permissions:
+      contents: read
+      issues: write
+
+    uses: ./.github/workflows/monitor.yml

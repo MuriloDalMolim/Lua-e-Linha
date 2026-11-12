@@ -2,6 +2,11 @@
 
 **Descubra se hoje é um bom dia para pescar e o que levar na caixa de pesca.**
 
+![CI](https://github.com/MuriloDalMolim/Lua-e-Linha/actions/workflows/ci.yml/badge.svg)
+![CodeQL](https://github.com/MuriloDalMolim/Lua-e-Linha/actions/workflows/codeql.yml/badge.svg)
+![Monitor](https://github.com/MuriloDalMolim/Lua-e-Linha/actions/workflows/monitor.yml/badge.svg)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=MuriloDalMolim_Lua-e-Linha&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=MuriloDalMolim_Lua-e-Linha)
+
 ## 1. Sobre o projeto
 
 Projeto acadêmico desenvolvido para a disciplina de **Integração Contínua** da UTFPR-DV, curso de Engenharia de Software.
@@ -141,7 +146,7 @@ O merge na `main` só é permitido quando o pipeline é concluído com sucesso.
 
 ### Etapas do pipeline
 
-Checkout → Secret scan → Setup Node.js → Install dependencies → Dependency audit → Lint → Tests and coverage → SonarQube Scan → Build → Upload Pages artifact → Deploy
+Checkout → Secret scan → Setup Node.js → Install dependencies → Dependency audit → Lint → Tests and coverage → SonarQube Scan → Build → Upload Pages artifact → Deploy → Post-deploy check
 
 | Etapa                 | O que faz                                                                                                                    |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -156,6 +161,7 @@ Checkout → Secret scan → Setup Node.js → Install dependencies → Dependen
 | Build                 | Gera a versão de produção da aplicação na pasta `dist/`                                                                      |
 | Upload Pages artifact | Empacota a pasta `dist/` como artefato da execução (somente em push na `main`)                                               |
 | Deploy                | Job separado que publica o artefato no GitHub Pages (somente em push na `main` e após o sucesso do build)                    |
+| Post-deploy check     | Job que executa o health check na aplicação recém-publicada (somente em push na `main` e após o sucesso do deploy)           |
 
 As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes não são executadas e o pipeline é marcado como falho.
 
@@ -169,6 +175,7 @@ As etapas são executadas em sequência. Se qualquer uma falhar, as seguintes n�
 
 - **CodeQL** (`.github/workflows/codeql.yml`): análise de segurança do código, executada em Pull Requests, em pushes na `main` e semanalmente.
 - **Dependabot** (`.github/dependabot.yml`): verificação semanal de atualizações das dependências npm e das actions dos workflows.
+- **Monitoramento** (`.github/workflows/monitor.yml`): verificação agendada da aplicação publicada (ver [Monitoramento e observabilidade](#13-monitoramento-e-observabilidade)).
 
 ## 8. Testes automatizados
 
@@ -338,6 +345,7 @@ O deploy é um job separado do workflow de CI e é executado automaticamente ap�
 1. O job **Lint, test and build** executa todas as validações e gera o artefato.
 2. O job **Deploy to GitHub Pages** só é iniciado se o build for concluído com sucesso (`needs: build`).
 3. O artefato é publicado, e o endereço da aplicação é registrado no ambiente `github-pages`.
+4. O job **Post-deploy check** verifica se a aplicação publicada responde corretamente, utilizando o mesmo health check do monitoramento.
 
 Em Pull Requests, o job de deploy não é executado. Assim, apenas alterações revisadas e incorporadas à `main` chegam à aplicação publicada.
 
@@ -351,6 +359,50 @@ Em Pull Requests, o job de deploy não é executado. Assim, apenas alterações 
 ### Roteamento no GitHub Pages
 
 O GitHub Pages serve apenas arquivos estáticos e não permite configurar o servidor para redirecionar todos os endereços ao `index.html`. Por isso, a aplicação utiliza o `HashRouter` (ver [Arquitetura da aplicação](#5-arquitetura-da-aplicação)): a rota fica após o `#` e não é enviada ao servidor, que sempre entrega o `index.html`.
+
+## 13. Monitoramento e observabilidade
+
+Após o deploy, a disponibilidade da aplicação publicada é verificada por um workflow próprio (`.github/workflows/monitor.yml`), separado do pipeline de CI/CD:
+
+- **CI/CD**: verifica se uma nova versão pode ser validada e publicada. É executado quando o código muda.
+- **Monitoramento**: verifica se a versão já publicada continua disponível. É executado periodicamente, mesmo sem alterações no código.
+
+### Quando é executado
+
+- **Automaticamente, de hora em hora**, no minuto 17 (`cron: '17 * * * *'`).
+- **Manualmente**, pelo botão **Run workflow** na aba Actions. Nesse caso, é possível informar outra URL, o que permite simular uma falha sem afetar a aplicação publicada.
+
+### Verificação após o deploy
+
+O mesmo workflow é reutilizado pelo pipeline de CI/CD (`workflow_call`): após cada deploy, o job **Post-deploy check** executa o health check na aplicação recém-publicada. Assim, uma publicação com problema é identificada imediatamente, sem aguardar a próxima verificação agendada, e a mesma lógica de verificação é mantida em um único lugar.
+
+### Como identifica se a aplicação está disponível
+
+A verificação é feita em camadas, e a aplicação só é considerada disponível se todas passarem:
+
+| Verificação           | Falha quando                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| Status HTTP da página | A resposta é diferente de 200, ou não há resposta (falha de conexão ou tempo esgotado)  |
+| Conteúdo esperado     | A página não contém o texto "Lua & Linha"                                               |
+| Script da aplicação   | O arquivo JavaScript principal, extraído da própria página, não responde com status 200 |
+
+A verificação do script é importante em uma SPA: o HTML contém apenas a estrutura vazia da página, e é o JavaScript que monta a interface. Sem ele, o usuário veria uma página em branco, mesmo com o HTML respondendo normalmente.
+
+Antes de considerar uma falha, cada requisição é repetida até 3 vezes, com intervalo de 10 segundos, evitando alertas causados por instabilidades momentâneas.
+
+### Registro e alerta
+
+- **Histórico**: cada execução fica registrada na aba Actions, com um resumo contendo a URL, o status HTTP, o tempo de resposta e o resultado.
+- **Issue automática**: quando uma falha é detectada, é aberta uma issue com a label `monitoring`. Se já houver uma issue aberta, as novas falhas são registradas como comentários, sem duplicação.
+- **Fechamento automático**: quando a aplicação volta a responder, a issue é fechada com um comentário, registrando o fim do incidente.
+- **Notificação**: a abertura da issue notifica quem acompanha o repositório, e o GitHub envia e-mail quando uma execução agendada falha.
+
+### Simulando uma falha
+
+1. Na aba **Actions**, selecione o workflow **Monitor** e clique em **Run workflow**.
+2. Informe uma URL inexistente, como `https://murilodalmolim.github.io/Lua-e-Linha/nao-existe/`.
+3. A verificação falha e a issue é aberta.
+4. Execute novamente sem informar URL. A verificação passa e a issue é fechada automaticamente.
 
 ## 15. Evidências
 
